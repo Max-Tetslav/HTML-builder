@@ -56,3 +56,28 @@ function copyAssets(distPath, target) {
 }
 
 copyAssets(distPath, 'assets/');
+
+const stylesDirPath = path.join(__dirname, 'styles');
+const bundlePath = path.join(__dirname, 'project-dist/style.css');
+const writeCssStream = fs.createWriteStream(bundlePath);
+
+function mergeStyles(src, dest) {
+	fs.readdir(src, { withFileTypes: true }, (err, files) => {
+		if (err) console.log(err);
+
+		const trueCss = files.filter(file => file.name.split('.')[1] === 'css');
+
+		trueCss.forEach(file => {
+			const filePath = path.join(src, file.name);
+
+			const readStream = fs.createReadStream(filePath, { encoding: "utf8" });
+
+			readStream.on('data', (chunk) => {
+				dest.write(chunk + '\n');
+			});
+		});
+	});
+}
+
+mergeStyles(stylesDirPath, writeCssStream);
+
