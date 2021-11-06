@@ -6,11 +6,16 @@ function createPath(dirname, filename) {
 	return path.join(dirname, filename);
 }
 
-function makeDir(dir) {
-	fsPromises.mkdir(dir, { recursive: true });
+async function makeDir(dir) {
+	await fsPromises.mkdir(dir, { recursive: true });
 }
 
+const stylesDirPath = createPath(__dirname, 'styles');
+const htmlPath = createPath(__dirname, 'template.html');
 const distPath = createPath(__dirname, 'project-dist');
+const htmlBundlePath = createPath(distPath, 'index.html');
+const bundleCssPath = createPath(__dirname, 'project-dist/style.css');
+const writeCssStream = fs.createWriteStream(bundleCssPath);
 
 makeDir(distPath);
 
@@ -57,10 +62,6 @@ function copyAssets(distPath, target) {
 
 copyAssets(distPath, 'assets/');
 
-const stylesDirPath = path.join(__dirname, 'styles');
-const bundlePath = path.join(__dirname, 'project-dist/style.css');
-const writeCssStream = fs.createWriteStream(bundlePath);
-
 function mergeStyles(src, dest) {
 	fs.readdir(src, { withFileTypes: true }, (err, files) => {
 		if (err) console.log(err);
@@ -68,7 +69,7 @@ function mergeStyles(src, dest) {
 		const trueCss = files.filter(file => file.name.split('.')[1] === 'css');
 
 		trueCss.forEach(file => {
-			const filePath = path.join(src, file.name);
+			const filePath = createPath(src, file.name);
 
 			const readStream = fs.createReadStream(filePath, { encoding: "utf8" });
 
@@ -81,3 +82,21 @@ function mergeStyles(src, dest) {
 
 mergeStyles(stylesDirPath, writeCssStream);
 
+const writeHtmlStream = fs.createWriteStream(htmlBundlePath);
+
+const componentsDirPath = createPath(__dirname, 'components/');
+
+async function replaceData() {
+	const files = await fsPromises.readdir(componentsDirPath);
+	let html = await fsPromises.readFile(htmlPath, { encoding: 'utf8' });
+
+	await Promise.all(files.map(file => new Promise(async (res) => {
+		const component = await fsPromises.readFile(createPath(componentsDirPath, file));
+		const name = file.replace(/\.[^.]*$/, '');
+		html = html.replace(`{{${name}}}`, component);
+		res()
+	})));
+	writeHtmlStream.write(html);
+};
+
+replaceData();
